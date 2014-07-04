@@ -8,6 +8,7 @@ import os.path
 import time
 import signal
 from amzmgutil import config
+from amzmgutil import functions
 from lxml import etree
 from getpass import getpass
 from pprint import pprint
@@ -23,6 +24,7 @@ parser.add_argument('--no-daemonize', action='store_const', const=1, default=0, 
 opts = parser.parse_args()
 
 configuration = config.load_configuration(opts.config_file)
+pollInterval = max(10, configuration['newFilePollSeconds'])
 
 auth_form_url = """https://www.amazon.com/gp/dmusic/cloud/mp3/webapp"""
 authn_endpoint = """https://www.amazon.com/ap/signin"""
@@ -130,12 +132,19 @@ if response.status_code == 200:
 				'sortCriteriaList.member.4.sortType': 'ASC'
 			}
 
-
-			cirrus_response = session.post('https://www.amazon.com/cirrus/2011-06-01/', data=new_purchase_params, headers=csrf_headers)
-			select_tracks_response = json.loads(cirrus_response.content)
+			try:
+				cirrus_response = session.post('https://www.amazon.com/cirrus/2011-06-01/', data=new_purchase_params, headers=csrf_headers)
+				select_tracks_response = json.loads(cirrus_response.content)
 			
-			#pprint(select_tracks_response)
-			new_songs = select_tracks_response['selectTracksResponse']['selectTracksResult']['selectItemList']
+				#pprint(select_tracks_response)
+				new_songs = select_tracks_response['selectTracksResponse']['selectTracksResult']['selectItemList']
+			except requests.exceptions.ConnectionError as ex:
+				print ("Connection error, using increased poll rate...")
+				functions.backoff_wait(pollInterval)
+				continue
+			except Exception as ex:
+				x = 1
+
 			num_songs = len(new_songs)
 			print  ("%d files to download." %num_songs)
 
@@ -192,8 +201,9 @@ if response.status_code == 200:
 					config.save_configuration(opts.config_file, configuration)
 			else:
 				signal.signal(signal.SIGUSR1, handler)
-				time.sleep(max(10, configuration['newFilePollSeconds']))
+				time.sleep(pollInterval)
 				signal.signal(signal.SIGUSR1, signal.SIG_IGN)
+				#functions.backoff_wait(pollInterval)
 else:
 	print ("%s: GET response not 200" %auth_form_url)
 

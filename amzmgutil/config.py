@@ -46,7 +46,7 @@ def default_config_prompts(config = {}):
     config['username'] = prompt("Email address you use to log on to amazon", config.get('username'))
     config['download_root'] = prompt("Directory to download files into", config.get('download_root'))
     while(not os.path.isdir(config['download_root'])): # might be nice to check writable directory too, but os.access not in older pythons, too much trouble
-	print ("{}: not a directory".format(config['download_root']))
+        print ("{}: not a directory".format(config['download_root']))
         config['download_root'] = prompt("Directory to download files into")
 
     print ("\nHow many days of previous purchases should amzmg initially download?")
