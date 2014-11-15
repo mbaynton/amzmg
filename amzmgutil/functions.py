@@ -1,6 +1,7 @@
 from __future__ import print_function
 import sys
 import time
+import logging
 import signal
 import json
 import requests
@@ -28,7 +29,7 @@ def backoff_wait(regular_poll_interval):
 def passive_signal_handler(sigNum, stackFrame):
     pass
 
-def main_dl_loop(configuration, app_data, opts, session, pollInterval):
+def main_dl_loop(configuration, app_data, opts, session, pollInterval, logger):
     csrf_config = app_data['CSRFTokenConfig']
     csrf_headers = {'csrf-token': csrf_config['csrf_token'], 'csrf-rnd': csrf_config['csrf_rnd'],
                     'csrf-ts': csrf_config['csrf_ts']}
@@ -98,6 +99,7 @@ def main_dl_loop(configuration, app_data, opts, session, pollInterval):
             new_songs = select_tracks_response['selectTracksResponse']['selectTracksResult']['selectItemList']
         except requests.exceptions.ConnectionError as ex:
             print("Connection error, using increased poll rate...")
+            logger.warn('Connection error, new purchase poll unsuccessful. Applying backoff...')
             backoff_wait(pollInterval)
             continue
         except Exception as ex:
@@ -105,6 +107,7 @@ def main_dl_loop(configuration, app_data, opts, session, pollInterval):
 
         num_songs = len(new_songs)
         print("%d files to download." % num_songs)
+        logger.info("%d files to download." % num_songs)
 
         if (num_songs > 0):
             get_song_url_fields = {'customerInfo.customerId': app_data['customerId'],
@@ -139,12 +142,14 @@ def main_dl_loop(configuration, app_data, opts, session, pollInterval):
             error = urls_struct.get('Error', None)
             if not error == None:
                 print("Failed to obtain url: {} {}".format(error['Code'], error['Message']), file=sys.stderr)
+                logger.error("Failed to obtain url: {} {}".format(error['Code'], error['Message']))
             urls_list = urls_struct['getStreamUrlsResponse']['getStreamUrlsResult']['trackStreamUrlList']
 
             fileNum = 1
             for song in urls_list:
                 name = filenames[song['objectId']]
                 print("Downloading " + name + "...")
+                logger.info("Downloading " + name + "...")
                 # needs newer version of requests
                 #r = session.get(song['url'], stream=True)
                 #with open(name, 'wb') as fd:
@@ -160,6 +165,7 @@ def main_dl_loop(configuration, app_data, opts, session, pollInterval):
                     fd.write(r.content)
                 configuration['lastDownloadedPurchase'] = purchaseDates[song['objectId']]
                 config.save_configuration(opts.config_file, configuration)
+                logger.warn("Downloaded \"" + name + "\" to " + configuration['download_root'])
         else:
             signal.signal(signal.SIGUSR1, passive_signal_handler)
             time.sleep(pollInterval)

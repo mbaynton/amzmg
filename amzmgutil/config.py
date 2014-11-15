@@ -35,7 +35,7 @@ def load_configuration(file_path, force_update):
         save_configuration(file_path, config)
         return config
 
-    requiredKeys = ['username', 'download_root', 'lastDownloadedPurchase', 'newFilePollSeconds']
+    requiredKeys = ['username', 'download_root', 'lastDownloadedPurchase', 'newFilePollSeconds', 'umask', 'logfile', 'daemonPidfile']
     haveKeys = config.keys()
     if len(set(requiredKeys) - set(haveKeys)) > 0:
         print("Saved configuration is incomplete; re-running setup")
@@ -83,7 +83,13 @@ def default_config_prompts(config={}):
     dt = dt - timedelta(days=days)
     config['lastDownloadedPurchase'] = dt.isoformat() + "Z"
 
+    # some things that are unlikely to need customization, but ought to be configurable through the file
+    config['logfile'] = '/var/log/amzmg.log'
+    config['daemonPidfile'] = '/var/run/amzmg/amzmg.pid'
     config['newFilePollSeconds'] = 120
+    # figure amazon mp3 content's pretty safe for the world to read, and most folks would rather leave out the
+    # permission denied failures when trying to play. Nerds can change in the config file if desired.
+    config['umask'] = 0002
 
     return config
 
