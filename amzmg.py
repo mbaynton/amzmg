@@ -9,6 +9,7 @@ import time
 import signal
 import logging
 import daemon
+import pwd
 from daemon import pidlockfile
 from amzmgutil import config
 from amzmgutil import functions
@@ -106,13 +107,15 @@ if response.status_code == 200:
                 dcontext = daemon.DaemonContext()
                 dcontext.files_preserve=[handler.stream]
                 dcontext.umask = configuration['umask']
-                dcontext.pidfile = pidlockfile.TimeoutPIDLockFile(configuration['daemonPidfile'])
+                pidfile = configuration['daemonPidfile'].replace('{username}', pwd.getpwuid(os.geteuid()).pw_name)
+                dcontext.pidfile = pidlockfile.TimeoutPIDLockFile(pidfile)
                 logger.info("Daemonizing...")
 
                 try:
                     with dcontext:
                         functions.main_dl_loop(configuration, app_data, opts, session, pollInterval, logger)
                 except pidlockfile.LockFailed as ex:
+                    # good chance we're detached from a tty at this point, but maybe print to stderr too anyway?
                     logger.error("Could not acquire pidfile lock: " + ex.message)
                     logger.error("Check that you have permission to create and write to the pidfile, and that another instance is not already running.")
                     sys.exit(1)

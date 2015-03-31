@@ -85,7 +85,8 @@ def default_config_prompts(config={}):
 
     # some things that are unlikely to need customization, but ought to be configurable through the file
     config['logfile'] = '/var/log/amzmg.log'
-    config['daemonPidfile'] = '/var/run/amzmg/amzmg.pid'
+    # we use /var/tmp rather than /var/run so regular users can create the file
+    config['daemonPidfile'] = '/var/tmp/amzmg-{username}.pid'
     config['newFilePollSeconds'] = 120
     # figure amazon mp3 content's pretty safe for the world to read, and most folks would rather leave out the
     # permission denied failures when trying to play. Nerds can change in the config file if desired.
